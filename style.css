@@ -17,6 +17,7 @@ body {
 }
 .board {
   margin: 0;
+  grid-auto-flow: dense;
 }
 
 .cell {
@@ -27,11 +28,7 @@ body {
   justify-content: center;
 }
 
-/* .cell:nth-child(1n + 18) {
-  background-color: rgba(139, 195, 74, 0.9);
-} */
-
-.cell:not(.revealed):hover {
+.cell:not(.revealed):not(.bomb):hover {
   background-color: lightgreen;
 }
 
@@ -40,27 +37,30 @@ body {
 }
 
 .cell.flagged {
-  background-image: url("//www.google.com/logos/fnbx/minesweeper/flag_icon.png");
+  background-image: url("./icons/flag-icon.png");
   background-position: center;
   background-repeat: no-repeat;
-  background-size: cover;
+  background-size: 70%;
 }
 
 .cell.bomb {
-  background-color: red;
+  background-image: url("./icons/bomb-icon.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 70%;
 }
 
-.overlay {
+#overlay {
+  display: none;
   position: fixed;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.151);
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
-.dialog {
-  width: 50vw;
+#dialog {
+  position: absolute;
+  top: -100vw;
+  width: 20vw;
   height: 25vh;
   background-color: white;
   text-align: center;
@@ -68,10 +68,17 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
   border-radius: 10px;
+  transition: all 0.2s ease-out;
 }
 
-.dialog button {
+#dialog.show {
+  top: 50%;
+  transform: translate(0, -50%);
+}
+
+#dialog button {
   outline: none;
   border: 1px solid rgb(66, 164, 197);
   border-radius: 3px;
@@ -81,7 +88,7 @@ body {
   font-size: 1.1rem;
   cursor: pointer;
 }
-.dialog button:hover {
+#dialog button:hover {
   background-color: rgb(66, 164, 197);
   color: black;
 }

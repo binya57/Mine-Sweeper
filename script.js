@@ -1,15 +1,14 @@
 const COLUMNS = 18;
 const ROWS = 18;
-const CELL_SIZE = 25;
-const BOMB_COUNT = (COLUMNS * ROWS) / 10;
+const CELL_SIZE = 30;
+const BOMB_COUNT = (COLUMNS * ROWS) / 8;
 const BOMB_CLASS = "bomb";
 const REVEALED_CLASS = "revealed";
 const FLAGGED_CLASS = "flagged";
+let lockBoard = false;
+const cellElementsMap = new Map();
 
 const board = document.getElementById("board");
-board.style.display = "grid";
-board.style.gridTemplateColumns = `repeat(${COLUMNS},${CELL_SIZE}px)`;
-board.style.gridTemplateRows = `repeat(${ROWS},${CELL_SIZE}px)`;
 
 function game() {
   createCells();
@@ -17,9 +16,11 @@ function game() {
   generateNumbers();
 }
 
-const cellElementsMap = new Map();
-
 function createCells() {
+  board.style.display = "grid";
+  board.style.gridTemplateColumns = `repeat(${COLUMNS},${CELL_SIZE}px)`;
+  board.style.gridTemplateRows = `repeat(${ROWS},${CELL_SIZE}px)`;
+
   for (let column = 0; column < COLUMNS; column++) {
     for (let row = 0; row < ROWS; row++) {
       const cell = document.createElement("div");
@@ -46,11 +47,50 @@ function generateNumbers() {
   cellElementsMap.forEach((value, key) => {
     const cell = cellElementsMap.get(key);
     if (cell.isBomb) return;
-    cell.adjacentBombsCount = findAdjacentBombs(key);
+    cell.adjacentBombsCount = getAdjacentBombsCount(key);
   });
 }
 
-function findAdjacentBombs(key) {
+function handleCellClick(event, key) {
+  const cell = cellElementsMap.get(key);
+  if (lockBoard || cell.revealed || cell.isFlagged) return;
+  if (cell.isBomb) return handleBombClick(cell);
+  revealCell(cell);
+  if (cell.adjacentBombsCount === 0) {
+    propagateReaveal(key);
+  }
+}
+
+function handleBombClick(cell) {
+  cell.classList.add(BOMB_CLASS);
+  gameOver();
+}
+
+function handleFlagCell(event, key) {
+  if (lockBoard) return;
+  event.preventDefault();
+  const cell = cellElementsMap.get(key);
+  cell.isFlagged = !cell.isFlagged;
+  cell.classList.toggle(FLAGGED_CLASS);
+}
+
+function revealCell(cell) {
+  cell.revealed = true;
+  cell.classList.add(REVEALED_CLASS);
+  cell.innerText = cell.adjacentBombsCount || "";
+}
+
+function propagateReaveal(key) {
+  getAdjacentCellsKeys(key).forEach((cellKey) => {
+    const cell = cellElementsMap.get(cellKey);
+    if (!cellElementsMap.has(cellKey) || cell.isBomb || cell.revealed) return;
+    revealCell(cell);
+    if (cell.adjacentBombsCount > 0) return;
+    propagateReaveal(cellKey);
+  });
+}
+
+function getAdjacentCellsKeys(key) {
   const [column, row] = fromKey(key);
 
   const adjacentCellsKeys = [
@@ -64,39 +104,43 @@ function findAdjacentBombs(key) {
     [column - 1, row + 1],
   ].map(([column, row]) => toKey(column, row));
 
+  return adjacentCellsKeys;
+}
+
+function getAdjacentBombsCount(key) {
+  const adjacentCellsKeys = getAdjacentCellsKeys(key);
+
   return adjacentCellsKeys.reduce((acc, key) => {
     const adjacentCell = cellElementsMap.get(key);
     return adjacentCell?.isBomb ? acc + 1 : acc;
   }, 0);
 }
 
-function handleCellClick(event, key) {
-  const cell = cellElementsMap.get(key);
-  if (cell.revealed) return;
-  if (cell.isFlagged) return;
-  if (cell.isBomb) return handleBombClick(cell);
-  cell.revealed = true;
-  cell.classList.add(REVEALED_CLASS);
-  cell.innerText = cell.adjacentBombsCount || "";
-}
-
-function handleBombClick(cell) {
-  cell.classList.add(BOMB_CLASS);
-  gameOver();
-}
-
-function handleFlagCell(event, key) {
-  event.preventDefault();
-  const cell = cellElementsMap.get(key);
-  cell.isFlagged = !cell.isFlagged;
-  cell.classList.toggle(FLAGGED_CLASS);
-}
-
 function gameOver() {
-  showDialog();
+  lockBoard = true;
+  revealBombs();
+  setTimeout(showDialog, 1 * 1000);
 }
 
-//utils
+function revealBombs() {
+  const allBombKeys = Array.from(cellElementsMap)
+    .filter(([key, cell]) => cell.isBomb)
+    .map(([key, cell]) => key)
+    .forEach((key) => {
+      const bombCell = cellElementsMap.get(key);
+      bombCell.classList.add(BOMB_CLASS);
+    });
+}
+
+function restart() {
+  cellElementsMap.clear();
+  while (board.firstChild) board.removeChild(board.lastChild);
+  document.getElementById("overlay").style.display = "none";
+  document.getElementById("dialog").classList.remove("show");
+  lockBoard = false;
+  game();
+}
+
 function toKey(column, row) {
   return `${column}-${row}`;
 }
@@ -106,16 +150,9 @@ function fromKey(key) {
 }
 
 function showDialog() {
-  const overlay = document.createElement("div");
-  overlay.className = "overlay";
-  const dialog = document.createElement("div");
-  dialog.className = "dialog";
-  dialog.innerHTML = `
-        <h2>Game Over!<h2/>
-        <button>Restart</button>
-    `;
-  overlay.appendChild(dialog);
-  board.appendChild(overlay);
+  document.getElementById("overlay").style.display = "block";
+  document.getElementById("dialog").classList.add("show");
+  document.querySelector("#dialog button").addEventListener("click", restart);
 }
 
 game();
